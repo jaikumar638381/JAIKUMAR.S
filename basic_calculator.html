@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Mobile Calculator</title>
+
+<style>
+:root{
+    --page-bg:#f7f7f7;      /* LIGHT WHITE BACKGROUND */
+    --board-bg:#c5ec69;     /* Calculator board white */
+    --btn-bg:#415365;       /* Dark circular buttons */
+    --btn-inner:#232425;
+    --op-blue:#2563eb;      /* Blue operator buttons */
+    --eq-orange:#f50b0b;    /* Orange equal button */
+    --white:#ffffff;
+    --gap:18px;
+    font-family: Inter, Roboto, Arial;
+}
+
+/* PAGE */
+html,body{
+    margin:0;
+    padding:0;
+    background:var(--page-bg);
+    display:flex;
+    justify-content:center;
+    padding-top:25px;
+}
+
+/* MOBILE BOARD */
+.board{
+    width:100%;
+    max-width:420px;
+    background:var(--board-bg);
+    border-radius:35px;
+    padding:20px 18px 30px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.15);
+}
+
+/* DISPLAY */
+.display{
+    padding:10px 12px 20px;
+}
+.history{
+    color:#888;
+    font-size:15px;
+    text-align:right;
+    min-height:20px;
+}
+.screen{
+    color:#000;
+    font-size:40px;
+    font-weight:700;
+    text-align:right;
+}
+
+/* GRID KEYPAD */
+.pad{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:var(--gap);
+    margin-top:12px;
+}
+
+/* BUTTON STYLE */
+.btn{
+    width:82px;
+    height:82px;
+    border-radius:50%;
+    border:none;
+    background:linear-gradient(180deg,var(--btn-bg),var(--btn-inner));
+    color:var(--white);
+    font-size:26px;
+    font-weight:700;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    box-shadow:0 7px 16px rgba(0,0,0,0.35);
+    user-select:none;
+    -webkit-tap-highlight-color: transparent;
+}
+.btn:active{
+    transform:scale(.96);
+}
+
+/* BLUE OPERATOR BUTTONS */
+.btn.op{
+    background:var(--op-blue);
+    font-size:28px;
+    font-weight:800;
+}
+
+/* WIDE “00” */
+.btn.double{
+    width:180px;
+    border-radius:50px;
+    grid-column:1/3;
+}
+
+/* ORANGE EQUALS BUTTON */
+.btn.equal{
+    background:var(--eq-orange);
+    display:flex;
+    flex-direction:column;
+}
+.eq-bar{
+    width:40%;
+    height:6px;
+    background:white;
+    border-radius:4px;
+    margin:3px 0;
+}
+
+/* Small screen adjustments */
+@media(max-width:360px){
+    .btn{width:70px;height:70px;font-size:22px;}
+    .btn.double{width:150px;}
+    .screen{font-size:34px;}
+}
+</style>
+</head>
+
+<body>
+
+<div class="board">
+
+    <!-- DISPLAY -->
+    <div class="display">
+        <div id="history" class="history"></div>
+        <div id="screen" class="screen">0</div>
+    </div>
+
+    <!-- KEYS -->
+    <div class="pad">
+
+        <button class="btn" data-action="clear">AC</button>
+        <button class="btn" data-action="percent">%</button>
+        <button class="btn" data-action="back">⌫</button>
+
+        <button class="btn op" data-action="operator" data-value="/">÷</button>
+
+        <button class="btn" data-value="7">7</button>
+        <button class="btn" data-value="8">8</button>
+        <button class="btn" data-value="9">9</button>
+        <button class="btn op" data-action="operator" data-value="*">×</button>
+
+        <button class="btn" data-value="4">4</button>
+        <button class="btn" data-value="5">5</button>
+        <button class="btn" data-value="6">6</button>
+        <button class="btn op" data-action="operator" data-value="-">−</button>
+
+        <button class="btn" data-value="1">1</button>
+        <button class="btn" data-value="2">2</button>
+        <button class="btn" data-value="3">3</button>
+        <button class="btn op" data-action="operator" data-value="+">+</button>
+
+        <button class="btn" data-value="00">00</button>
+        <button class="btn" data-value="0">0</button>
+        <button class="btn" data-value=".">.</button>
+
+        <button class="btn equal" data-action="equals">
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+        </button>
+
+    </div>
+</div>
+
+<script>
+/* CALCULATOR LOGIC */
+let current = "0";
+let previous = null;
+let operator = null;
+let overwrite = true;
+
+const screen = document.getElementById("screen");
+const history = document.getElementById("history");
+const buttons = document.querySelectorAll(".btn");
+
+function show(){
+    screen.textContent = current;
+    history.textContent = previous && operator ? `${previous} ${operator}` : "";
+}
+
+function calculate(a,b,op){
+    a = Number(a); b = Number(b);
+    switch(op){
+        case "+": return a+b;
+        case "-": return a-b;
+        case "*": return a*b;
+        case "/": return b===0 ? "Error" : a/b;
+        default: return b;
+    }
+}
+
+function input(v){
+    if(overwrite){
+        current = v === "." ? "0." : v;
+        overwrite = false;
+    } else {
+        if(v==="." && current.includes(".")) return;
+        current = current==="0" && v!=="." ? v : current+v;
+    }
+}
+
+function setOp(op){
+    if(previous && operator && !overwrite){
+        current = String(calculate(previous,current,operator));
+        previous = current;
+    } else {
+        previous = current;
+    }
+    operator = op;
+    overwrite = true;
+}
+
+buttons.forEach(btn=>{
+    btn.onclick = ()=>{
+        const act = btn.dataset.action;
+        const val = btn.dataset.value;
+
+        if(act==="clear"){ current="0"; previous=null; operator=null; overwrite=true; }
+        else if(act==="back"){ current=current.length>1?current.slice(0,-1):"0"; }
+        else if(act==="percent"){ current = String(Number(current)/100); overwrite=true; }
+        else if(act==="operator"){ setOp(val); }
+        else if(act==="equals"){
+            if(operator && previous){
+                current = String(calculate(previous,current,operator));
+                previous=null; operator=null; overwrite=true;
+            }
+        }
+        else input(val);
+
+        show();
+    };
+});
+
+show();
+</script>
+
+</body>
+</html>
