@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sri Murugan Hot Chips — Bill Generator</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background:#f5f7fb; font-family: Arial; }
+.brand { font-weight:700; }
+
+.card-app { border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,.08); }
+
+.no-print { display:inline-block; }
+
+/* PDF / Print Area */
+#invoicePreview{
+  background:#fff;
+  padding:20px;
+  max-width:760px;
+  margin:auto;
+  border:2px solid #000;
+}           
+
+.shop-title{
+  text-align:center;
+  font-weight:800;
+  font-size:22px;
+}
+
+.shop-sub{
+  text-align:center;
+  font-size:13px;
+  margin-bottom:10px;
+}
+
+.invoice-table th,
+.invoice-table td{
+  border:1px solid #000 !important;
+  padding:6px;
+  font-size:14px;
+}
+
+@media print{
+  body *{visibility:hidden}
+  #invoicePreview,#invoicePreview *{visibility:visible}
+  #invoicePreview{position:absolute;top:0;left:0;width:100%}
+}
+</style>
+</head>
+
+<body>
+<div class="container py-4">
+
+<h3 class="brand text-center mb-3">Sri Murugan Hot Chips</h3>
+
+<div class="card card-app p-3 mb-3">
+<div class="row g-2">
+  <div class="col-md-4">
+    <label>Customer Name</label>
+    <input id="custName" class="form-control">
+  </div>
+  <div class="col-md-4">
+    <label>Bill No</label>
+    <input id="billNo" class="form-control" value="B001">
+  </div>
+  <div class="col-md-4">
+    <label>Date</label>
+    <input type="date" id="billDate" class="form-control">
+  </div>
+</div>
+
+<table class="table table-bordered table-sm mt-3">
+<thead class="table-light">
+<tr>
+<th>Item</th><th>Qty</th><th>Rate ₹</th><th>Amount ₹</th><th></th>
+</tr>
+</thead>
+<tbody id="itemsBody"></tbody>
+</table>
+
+<button class="btn btn-sm btn-primary" onclick="addItemRow()">+ Add Item</button>
+
+<div class="row mt-3">
+  <div class="col-md-6">
+    <label>Discount ₹</label>
+    <input id="discount" class="form-control" value="0" oninput="recalculate()">
+  </div>
+  <div class="col-md-6">
+    <label>GST %</label>
+    <input id="taxPercent" class="form-control" value="5" oninput="recalculate()">
+  </div>
+</div>
+
+<div class="mt-3 d-flex gap-2">
+  <button class="btn btn-success" onclick="renderPreview()">Generate Bill</button>
+  <button class="btn btn-dark" onclick="window.print()">Print</button>
+  <button class="btn btn-outline-primary" onclick="downloadPDF()">Download PDF</button>
+</div>
+</div>
+
+<!-- ===== BILL PREVIEW ===== -->
+<div id="invoicePreview">
+<div class="shop-title">SRI MURUGAN HOT CHIPS</div>
+<div class="shop-sub">BILL RECEIPT</div>
+
+<div class="d-flex justify-content-between mb-2">
+  <div><b>Customer:</b> <span id="pCust">-</span></div>
+  <div><b>Date:</b> <span id="pDate">-</span></div>
+</div>
+<div class="mb-2"><b>Bill No:</b> <span id="pBill">-</span></div>
+
+<table class="table invoice-table">
+<thead>
+<tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th></tr>
+</thead>
+<tbody id="pItems"></tbody>
+</table>
+
+<table class="table invoice-table">
+<tr><td class="text-end">Subtotal</td><td>₹ <span id="pSub">0</span></td></tr>
+<tr><td class="text-end">Discount</td><td>₹ <span id="pDisc">0</span></td></tr>
+<tr><td class="text-end">GST</td><td>₹ <span id="pGst">0</span></td></tr>
+<tr><td class="text-end fw-bold">Total</td><td class="fw-bold">₹ <span id="pTotal">0</span></td></tr>
+</table>
+
+<div><b>Amount in Words:</b> <span id="pWords"></span></div>
+
+<div class="d-flex justify-content-between mt-4">
+  <div>Customer Signature</div>
+  <div>Authorized Sign</div>
+</div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+
+<script>
+/* DEFAULT SNACK ITEMS */
+const defaultItems = [
+["Plain Potato Chips",1,30],["Masala Potato Chips",1,35],
+["Banana Chips (Nendran)",1,40],["Tapioca Chips",1,30],
+["Spicy Mixture",1,45],["Groundnut Mixture",1,40],
+["Garlic Murukku",1,50],["Butter Murukku",1,45],
+["Ribbon Pakoda",1,50],["Kara Boondi",1,40],
+["Sweet Boondi",1,40],["Pepper Chips",1,35],
+["Cheese Chips",1,45],["Tomato Chips",1,35],
+["Coconut Chips",1,55]
+];
+
+function addItemRow(name="",qty=1,rate=0){
+const tr=document.createElement("tr");
+tr.innerHTML=`
+<td><input class="form-control" value="${name}" oninput="recalculate()"></td>
+<td><input type="number" class="form-control" value="${qty}" oninput="recalculate()"></td>
+<td><input type="number" class="form-control" value="${rate}" oninput="recalculate()"></td>
+<td class="text-end"><span class="amt">0</span></td>
+<td><button class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove();recalculate()">×</button></td>`;
+itemsBody.appendChild(tr);
+recalculate();
+}
+
+function recalculate(){
+let subtotal=0;
+document.querySelectorAll("#itemsBody tr").forEach(r=>{
+let q=+r.children[1].children[0].value||0;
+let rate=+r.children[2].children[0].value||0;
+let amt=q*rate;
+r.querySelector(".amt").innerText=amt.toFixed(2);
+subtotal+=amt;
+});
+let disc=+discount.value||0;
+let gst=(subtotal-disc)*(+taxPercent.value||0)/100;
+let total=subtotal-disc+gst;
+
+pSub.innerText=subtotal.toFixed(2);
+pDisc.innerText=disc.toFixed(2);
+pGst.innerText=gst.toFixed(2);
+pTotal.innerText=total.toFixed(2);
+pWords.innerText=Math.round(total)+" rupees only";
+}
+
+function renderPreview(){
+pCust.innerText=custName.value||"-";
+pBill.innerText=billNo.value;
+pDate.innerText=billDate.value;
+pItems.innerHTML="";
+document.querySelectorAll("#itemsBody tr").forEach((r,i)=>{
+pItems.innerHTML+=`
+<tr>
+<td>${i+1}</td>
+<td>${r.children[0].children[0].value}</td>
+<td>${r.children[1].children[0].value}</td>
+<td>${r.children[2].children[0].value}</td>
+<td>${r.querySelector(".amt").innerText}</td>
+</tr>`;
+});
+recalculate();
+}
+
+function downloadPDF(){
+renderPreview();
+html2pdf().set({
+margin:8,
+filename:"Sri_Murugan_Hot_Chips_Bill.pdf",
+html2canvas:{scale:2},
+jsPDF:{unit:"mm",format:"a4"}
+}).from(invoicePreview).save();
+}
+
+window.onload=()=>{
+billDate.value=new Date().toISOString().slice(0,10);
+defaultItems.forEach(i=>addItemRow(i[0],i[1],i[2]));
+};
+</script>
+
+</body>
+</html>
